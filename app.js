@@ -2,13 +2,14 @@
 const SIGNUP = "https://fomo.family/r/muteee";
 const POLL_MS = 15000;
 var DP = null, S = null, ACT = [], COINS = [], EV = [], lastOk = 0, lastErr = null, route = {tab: "home"};
+const TABS = ["home", "live", "agents", "activity", "account"];
 
 (function initPath() {
   const t = location.hash.match(/[#&]t=([a-z]+)/), mm = location.hash.match(/[#&]m=([A-Za-z0-9]+)/);
   const m = location.hash.match(/[#&]d=([A-Za-z0-9_\-]+)/);
   if (m) { localStorage.setItem("desk.dp", m[1]); history.replaceState(null, "", location.pathname); }
   DP = localStorage.getItem("desk.dp");
-  if (t) route = ["home", "agents", "activity", "account"].includes(t[1]) ? {tab: t[1]} : {tab: "agents", view: t[1], mint: mm && mm[1]};
+  if (t) route = TABS.includes(t[1]) ? {tab: t[1]} : {tab: "agents", view: t[1], mint: mm && mm[1]};
 })();
 
 const $ = s => document.querySelector(s);
@@ -16,7 +17,9 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const usd = (x, d = 2) => x == null ? "—" : (x < 0 ? "-$" : "$") + Math.abs(x).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
 const pct = x => x == null ? "—" : (x > 0 ? "+" : "") + x.toFixed(1) + "%";
 const ago = ts => { if (!ts) return "never"; const s = Math.round((Date.now() - Date.parse(ts)) / 1000); return s < 60 ? s + "s ago" : s < 3600 ? Math.round(s/60) + "m ago" : Math.round(s/3600) + "h ago"; };
-const tm = ts => ts ? new Date(ts).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : "";
+const TZ = {timeZone: "Europe/Stockholm", hour12: false, hourCycle: "h23"};
+const tm = ts => ts ? new Date(ts).toLocaleTimeString("sv-SE", {...TZ, hour: "2-digit", minute: "2-digit"}) : "";
+const tms = ts => ts ? new Date(ts).toLocaleTimeString("sv-SE", {...TZ, hour: "2-digit", minute: "2-digit", second: "2-digit"}) : "";
 const link = c => (c && c.link) || SIGNUP;
 const fomoBtn = (c, label, cls = "") => `<a class="btn ${cls}" href="${esc(link(c))}" target="_blank" rel="noopener">${esc(label)}</a>`;
 
@@ -48,7 +51,7 @@ function render() {
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === route.tab));
   if (!DP) { v.innerHTML = `<div class="card empty">No desk linked.<br><br>Open the link with <code>#d=…</code> from the desk once on this phone.</div>${foot()}`; return; }
   if (!S) { v.innerHTML = lastErr ? `<div class="card err empty">Can't reach the desk.<br><span class="small">${esc(lastErr)}</span><br><br><button class="btn sec" onclick="poll()">Retry</button></div>` : `<div class="card empty">Loading…</div>`; return; }
-  v.innerHTML = ({home, agents, activity, account, coin, auditor}[route.view || route.tab])() + foot();
+  v.innerHTML = ({home, live, agents, activity, account, coin, auditor}[route.view || route.tab])() + foot();
   if (route.view === "coin") drawChart();
 }
 const foot = () => `<footer class="small muted">Trades happen on FOMO, by you. <a href="${SIGNUP}" target="_blank" rel="noopener">Join FOMO · 10% off fees</a></footer>`;
@@ -207,8 +210,67 @@ async function sub() {
   } catch (e) { o.textContent = e.message; }
 }
 
+
+// ---------- LIVE VIEW ----------
+// Feed = desk/live.py snapshot (last ~100 events + heartbeats + mode). Sources, best first:
+//  1. realtime: signed snapshots pushed to Nostr relays (cfg.realtime) -> arrives < 1 s after the desk acts
+//  2. cfg.feedUrl: a read-only HTTPS endpoint polled every 3 s (if one is configured)
+//  3. Pages copy d/<DP>/live.json, polled every 15 s (Pages itself only refreshes ~every 6 min)
+var LV = null, LCFG = null, lvSrc = "", lvGot = 0, lvFilter = "all";
+const COIN_RE = /^https:\/\/fomo\.family\/coin\?address=[A-Za-z0-9]+&chainId=\d+&r=muteee&source=share_link$/;
+const lvLink = e => COIN_RE.test((e && e.link) || "") ? e.link : SIGNUP;
+function lvAccept(f, src) {
+  if (!f || !Array.isArray(f.events) || !f.ts) return;
+  if (LV && Date.parse(f.ts) < Date.parse(LV.ts)) return;           // keep the newest snapshot
+  LV = f; lvSrc = src; lvGot = Date.now();
+  if (route.tab === "live" && !route.view) render(); else lvTick();
+}
+async function liveStart() {
+  if (!DP) return;
+  try { LCFG = await j("live_cfg.json"); } catch (e) { LCFG = {}; }
+  if (LCFG.realtime && LCFG.pubkey && (LCFG.relays || []).length) LCFG.relays.slice(0, 3).forEach(lvRelay);
+  if (LCFG.feedUrl && /^https:\/\//.test(LCFG.feedUrl)) { const f = async () => { try { const r = await fetch(LCFG.feedUrl, {cache: "no-store"}); if (r.ok) lvAccept(await r.json(), "direct"); } catch (e) {} }; f(); setInterval(f, 3000); }
+  const pg = async () => { if (Date.now() - lvGot < 20000 && lvSrc !== "pages") return; try { lvAccept(await j("live.json"), "pages"); } catch (e) {} };
+  pg(); setInterval(pg, 15000); setInterval(lvTick, 1000);
+}
+function lvRelay(url, wait = 1000) {
+  if (!/^wss:\/\//.test(url)) return;
+  let ws; try { ws = new WebSocket(url); } catch (e) { return; }
+  ws.onopen = () => { wait = 1000; ws.send(JSON.stringify(["REQ", "desk", {kinds: [LCFG.kind || 30078], authors: [LCFG.pubkey], "#d": [LCFG.d || "desk-live"], limit: 1}])); };
+  ws.onmessage = m => { try { const x = JSON.parse(m.data); if (x[0] === "EVENT" && x[2] && x[2].pubkey === LCFG.pubkey) lvAccept(JSON.parse(x[2].content), "realtime"); } catch (e) {} };
+  ws.onclose = () => setTimeout(() => lvRelay(url, Math.min(wait * 2, 30000)), wait);
+}
+function lvAge() { return LV ? Math.max(0, Math.round((Date.now() - Date.parse(LV.ts)) / 1000)) : null; }
+function lvTick() {
+  const el = document.getElementById("lvage"); if (!el) return;
+  const a = lvAge(); el.textContent = a == null ? "connecting…" : a < 120 ? `${a}s ago` : ago(LV.ts);
+  const d = document.getElementById("lvdot"); if (d) d.className = "pulse" + (a == null || a > (lvSrc === "pages" ? 900 : 30) ? " off" : "");
+}
+const VC = {pass: "g", kill: "r", buy: "b", sell: "o", new: "muted", info: "muted"};
+const VL = {pass: "pass", kill: "kill", buy: "buy", sell: "sell", new: "new", info: "info"};
+const AGN = {scanner: "Scanner", auditor: "Auditor", analyst: "Analyst", executor: "Executor", risk: "Risk", desk: "Desk"};
+function live() {
+  if (!LV) return `<div class="card empty"><span id="lvdot" class="pulse off"></span> Connecting to the desk… <span id="lvage" class="small"></span></div>`;
+  const a = lvAge(), st = LV.stats || {}, lh = st.lastHour || {};
+  const src = lvSrc === "realtime" ? "real-time" : lvSrc === "direct" ? "every 3 s" : "via Pages · refreshes ~every 6 min";
+  let h = `<div class="card"><div class="row"><b><span id="lvdot" class="pulse"></span>LIVE <span class="badge${LV.mode === "LIVE" ? " live" : ""}">${esc(LV.mode)}</span></b><span class="small muted">updated <span id="lvage">${a}s ago</span></span></div>
+   <div class="small muted" style="margin-top:4px">${esc(src)}</div>
+   <div class="chips">${["scanner", "auditor", "analyst", "executor", "risk"].map(k => { const x = (LV.agents || {})[k] || {state: "down"};
+     return `<span class="chip"><span class="dot ${esc(x.state)}"></span>${AGN[k]}<span class="muted"> ${x.ageS == null ? "—" : x.ageS + "s"}</span></span>`; }).join("")}</div>
+   <div class="small muted" style="margin-top:8px">Last hour: ${lh.graduated ?? 0} graduated · ${lh.scanned ?? 0} checked · ${lh.killed ?? 0} killed · ${lh.audited ?? 0} audited · ${lh.buys ?? 0} buys · ${st.waiting ?? 0} waiting</div></div>`;
+  const F = {all: () => true, pass: e => e.verdict === "pass", kill: e => e.verdict === "kill", trades: e => e.verdict === "buy" || e.verdict === "sell"};
+  h += `<div class="seg">${[["all", "All"], ["pass", "Passed"], ["kill", "Killed"], ["trades", "Trades"]].map(([k, l]) => `<button class="${lvFilter === k ? "on" : ""}" onclick="lvFilter='${k}';render()">${l}</button>`).join("")}</div>`;
+  const rows = LV.events.filter(F[lvFilter] || F.all);
+  h += `<div class="card lv">` + (rows.length ? rows.map(e => {
+    const nm = e.name || (e.mint ? e.mint.slice(0, 4) + "…" + e.mint.slice(-4) : AGN[e.agent] || e.agent);
+    return `<div class="lvr"><div class="lvt">${esc(tms(e.ts))}</div><div class="lvb"><div class="row"><span class="t">${esc(nm)}${e.symbol ? ` <span class="muted small">${esc(e.symbol)}</span>` : ""}</span><span class="vp ${VC[e.verdict] || "muted"}">${esc(VL[e.verdict] || e.verdict)}</span></div>
+      <div class="d"><span class="ag">${esc(AGN[e.agent] || e.agent)}</span> · ${esc(e.reason)}</div>${e.mint ? `<a class="small" href="${esc(lvLink(e))}" target="_blank" rel="noopener">Coin on FOMO ›</a>` : ""}</div></div>`; }).join("")
+    : `<div class="empty">Nothing in this filter yet.</div>`) + `</div>`;
+  return h;
+}
+
 let stack = [];
-function go(v, mint) { if (["home", "agents", "activity", "account"].includes(v)) { route = {tab: v}; stack = []; } else { stack.push({...route}); route = {...route, view: v, mint}; } render(); scrollTo(0, 0); }
+function go(v, mint) { if (TABS.includes(v)) { route = {tab: v}; stack = []; } else { stack.push({...route}); route = {...route, view: v, mint}; } render(); scrollTo(0, 0); }
 function back() { route = stack.pop() || {tab: route.tab}; render(); }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => go(b.dataset.tab));
-poll(); setInterval(poll, POLL_MS);
+poll(); setInterval(poll, POLL_MS); liveStart();
