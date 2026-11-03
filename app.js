@@ -1,5 +1,5 @@
 // Desk app. Static, read-only: polls plan B JSON at d/<DATA_PATH>/*.json. Never places orders.
-const SIGNUP = "https://fomo.family/r/muteee";
+const SIGNUP = "https://pump.fun/join/MuTee";
 const POLL_MS = 15000;
 var DP = null, S = null, ACT = [], COINS = [], EV = [], lastOk = 0, lastErr = null, route = {tab: "home"};
 const TABS = ["home", "live", "agents", "activity", "account"];
@@ -21,7 +21,7 @@ const TZ = {timeZone: "Europe/Stockholm", hour12: false, hourCycle: "h23"};
 const tm = ts => ts ? new Date(ts).toLocaleTimeString("sv-SE", {...TZ, hour: "2-digit", minute: "2-digit"}) : "";
 const tms = ts => ts ? new Date(ts).toLocaleTimeString("sv-SE", {...TZ, hour: "2-digit", minute: "2-digit", second: "2-digit"}) : "";
 const link = c => (c && c.link) || SIGNUP;
-const fomoBtn = (c, label, cls = "") => `<a class="btn ${cls}" href="${esc(link(c))}" target="_blank" rel="noopener">${esc(label)}</a>`;
+const pfBtn = (c, label, cls = "") => `<a class="btn ${cls}" href="${esc(link(c))}" target="_blank" rel="noopener">${esc(label)}</a>`;
 
 async function j(name) {
   const r = await fetch(`d/${DP}/${name}?v=${Date.now()}`, {cache: "no-store"});
@@ -54,7 +54,7 @@ function render() {
   v.innerHTML = ({home, live, agents, activity, account, coin, auditor}[route.view || route.tab])() + foot();
   if (route.view === "coin") drawChart();
 }
-const foot = () => `<footer class="small muted">Trades happen on FOMO, by you. <a href="${SIGNUP}" target="_blank" rel="noopener">Join FOMO · 10% off fees</a></footer>`;
+const foot = () => `<footer class="small muted">Trades happen on Pump.fun, by you. <a href="${SIGNUP}" target="_blank" rel="noopener">Join Pump.fun · code MuTee</a></footer>`;
 
 function home() {
   const st = S.stats, pnl = st.pnlUsd, start = S.startStack || S.stack;
@@ -67,7 +67,7 @@ function home() {
   h += S.positions.length ? `<div class="list">` + S.positions.map(p => {
     const ch = p.entry_price ? 100 * (p.lastPrice / p.entry_price - 1) : null;
     return `<div class="it" onclick="go('coin','${p.mint}')"><div><div class="t">${esc(p.name)}</div><div class="d">${usd(p.size_usd)} · stop -${p.stop_pct}%${p.trail_active ? " · trailing" : ""}</div></div>
-     <div class="rt"><span class="${ch >= 0 ? "g" : "r"}">${pct(ch)}</span><br>${fomoBtn(p, "Sell on FOMO", "sec")}</div></div>`;
+     <div class="rt"><span class="${ch >= 0 ? "g" : "r"}">${pct(ch)}</span><br>${pfBtn(p, "Sell on Pump.fun", "sec")}</div></div>`;
   }).join("") + `</div>` : `<div class="empty">No open positions. The desk is watching.</div>`;
   h += `</div><div class="card"><b>Tonight</b><div class="grid" style="margin-top:10px">
    <div class="kv"><span class="muted small">Migrations</span><b>${st.migrations}</b></div>
@@ -83,7 +83,7 @@ function home() {
 const AG = {scanner: "Scanner", auditor: "Auditor", analyst: "Analyst", executor: "Executor", risk: "Risk"};
 const AGD = {scanner: "Watches every Pump.fun migration, kills thin, top-heavy, pumped and copycat pools.",
   auditor: "8-layer safety check, any red layer rejects.", analyst: "4 questions on numbers only, then the gate.",
-  executor: "Sizes the ticket and sends you a Buy on FOMO push.", risk: "Watches open positions: stop, trailing stop, timeout, pulled."};
+  executor: "Sizes the ticket and sends you a Buy on Pump.fun push.", risk: "Watches open positions: stop, trailing stop, timeout, pulled."};
 function agents() {
   const st = S.stats;
   const extra = {scanner: `${st.migrations} migrations · ${st.waiting} waiting · ${st.scanKills} killed · ws ${S.wsState}`,
@@ -114,7 +114,7 @@ function auditor() {
   const cur = list.find(c => c.mint === route.mint) || list[0];
   let h = `<a class="back" onclick="go('agents')">‹ Agents</a>`;
   if (!cur) return h + `<div class="card empty">No audits yet. Coins reach the Auditor after the Scanner passes them (pool ≥ ${S.settings["scanner.min_pool_age_min"]} min old).</div>`;
-  h += `<div class="card"><div class="row"><div><b>${esc(cur.name || cur.mint.slice(0, 6))}</b><div class="small muted">${cur.audit ? (cur.audit.passed ? '<span class="g">passed</span>' : '<span class="r">rejected · ' + esc(cur.audit.reason) + "</span>") : "auditing…"}</div></div>${fomoBtn(cur, "Coin on FOMO", "sec")}</div>
+  h += `<div class="card"><div class="row"><div><b>${esc(cur.name || cur.mint.slice(0, 6))}</b><div class="small muted">${cur.audit ? (cur.audit.passed ? '<span class="g">passed</span>' : '<span class="r">rejected · ' + esc(cur.audit.reason) + "</span>") : "auditing…"}</div></div>${pfBtn(cur, "Coin on Pump.fun", "sec")}</div>
    <div style="text-align:center;margin:10px 0">${disc(cur.layers)}</div>
    ${cur.layers.map(L => `<div class="layer"><span class="n">${L.n}</span><div style="flex:1"><div>${esc(L.name)}</div><div class="small muted">${esc(L.value ?? "")}</div></div><span class="${L.pass ? "g" : L.pass === 0 || L.pass === false ? "r" : "muted"}">${L.pass ? "✓" : L.pass === 0 || L.pass === false ? "✗" : "·"}</span></div>`).join("")}</div>`;
   h += `<div class="card"><b>Recent audits</b><div class="list">${list.slice(0, 15).map(c => `<div class="it" onclick="route.mint='${c.mint}';render()"><div><div class="t">${esc(c.name || c.mint.slice(0, 6))}</div><div class="d">${c.layers.filter(x => x.pass).length}/8 · ${esc(c.audit ? c.audit.reason || "passed" : "…")}</div></div><div class="rt">${c.audit && c.audit.passed ? '<span class="g">pass</span>' : '<span class="r">red</span>'}</div></div>`).join("")}</div></div>`;
@@ -147,7 +147,7 @@ function coin() {
   const c = COINS.find(x => x.mint === route.mint) || {mint: route.mint};
   const p = S.positions.find(x => x.mint === route.mint) || S.closed.find(x => x.mint === route.mint);
   let h = `<a class="back" onclick="back()">‹ Back</a><div class="card"><div class="row"><div><b>${esc(c.name || (p && p.name) || route.mint.slice(0, 6))}</b><div class="small muted">${esc(c.symbol || "")} · ${esc(route.mint.slice(0, 4))}…${esc(route.mint.slice(-4))}</div></div>
-   ${p && p.status === "open" ? fomoBtn(c, "Sell on FOMO", "r") : fomoBtn(c, "Buy on FOMO", "g")}</div>
+   ${p && p.status === "open" ? pfBtn(c, "Sell on Pump.fun", "r") : pfBtn(c, "Buy on Pump.fun", "g")}</div>
    <canvas id="chart" height="220"></canvas><div class="small muted"><span class="o">- - -</span> Risk trailing stop${p && p.entry_price ? ` · <span style="color:#6aa8ff">—</span> entry` : ""}</div></div>`;
   if (p) h += `<div class="card grid"><div class="kv"><span class="muted small">Size</span><b>${usd(p.size_usd)}</b></div><div class="kv"><span class="muted small">Entry</span><b>${p.entry_price ? p.entry_price.toPrecision(4) : "—"}</b></div>
    <div class="kv"><span class="muted small">Stop</span><b>-${p.stop_pct}%</b></div><div class="kv"><span class="muted small">${p.status === "closed" ? "P&L" : "Now"}</span><b>${p.status === "closed" ? usd(p.pnl_usd) : p.lastPrice ? p.lastPrice.toPrecision(4) : "—"}</b></div></div>`;
@@ -181,7 +181,7 @@ const SL = [["Stop", "risk.stop_pct", "stop", 0.5, "%"], ["Trailing stop", "risk
   ["Min liquidity", "scanner.min_liquidity_usd", "min_liq", 500, "$"], ["Min score", "analyst.min_score", "min_score", 1, ""], ["Timeout", "risk.timeout_h", "timeout", 0.25, "h"]];
 function account() {
   const st = S.settings;
-  let h = `<div class="card"><div class="row"><b>Mode</b><span class="badge ${S.mode === "LIVE" ? "live" : ""}">${S.mode}</span></div><div class="small muted" style="margin-top:6px">${S.mode === "PAPER" ? `Paper stack ${usd(S.stack)}. LIVE only when you send LIVE in Telegram.` : `LIVE stack ${usd(S.stack)}. You still tap every trade on FOMO yourself.`}</div>
+  let h = `<div class="card"><div class="row"><b>Mode</b><span class="badge ${S.mode === "LIVE" ? "live" : ""}">${S.mode}</span></div><div class="small muted" style="margin-top:6px">${S.mode === "PAPER" ? `Paper stack ${usd(S.stack)}. LIVE only when you send LIVE in Telegram.` : `LIVE stack ${usd(S.stack)}. You still tap every trade on Pump.fun yourself.`}</div>
     <div class="row small"><span class="muted">Min stack for ${st["executor.stack_pct"]}% tickets</span><span>${usd(S.minStack)}</span></div>
     <div class="row small"><span class="muted">Below min</span><span>${st["executor.below_min"]}</span></div><div class="row small"><span class="muted">Analyst</span><span>${st["analyst.mode"]}</span></div>
     <div class="row small"><span class="muted">Pushes</span><span>${S.channels.length ? S.channels.join(", ") : "none connected"}</span></div></div>`;
@@ -192,8 +192,8 @@ function account() {
     `<pre id="cmd" class="small" style="margin-top:12px">set stop to ${st["risk.stop_pct"]}</pre><button class="btn sec" onclick="navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent)">Copy command</button></div>`;
   h += `<div class="card"><b>Push on this phone</b><div class="small muted" style="margin:6px 0">Add to Home Screen first on iPhone. The desk can't receive anything from this page, so copy the subscription and send it to Grok Bot.</div>
     <button class="btn sec" onclick="sub()">Enable push</button><pre id="subout" class="small" style="display:none"></pre></div>`;
-  h += `<div class="card"><b>FOMO</b><div class="row small" style="margin-top:8px"><span class="muted">Referral</span><span>muteee · 10% off fees</span></div>
-    <div style="margin-top:10px"><a class="btn" href="${SIGNUP}" target="_blank" rel="noopener">Sign up on FOMO</a> <a class="btn sec" href="${esc(S.profileUrl)}" target="_blank" rel="noopener">@muteee</a></div></div>`;
+  h += `<div class="card"><b>Pump.fun</b><div class="row small" style="margin-top:8px"><span class="muted">Referral</span><span>MuTee · 0.40% app fee with code</span></div>
+    <div style="margin-top:10px"><a class="btn" href="${SIGNUP}" target="_blank" rel="noopener">Sign up on Pump.fun</a> <a class="btn sec" href="${esc(S.profileUrl)}" target="_blank" rel="noopener">@MuTee</a></div></div>`;
   return h;
 }
 function sl(alias, u, v, key) { const neg = key.endsWith("stop_pct") || key.endsWith("trail_pct"); $("#v_" + alias).textContent = u === "$" ? usd(+v, 0) : (neg ? "-" : "") + v + u; $("#cmd").textContent = `set ${alias} to ${v}`; }
@@ -217,7 +217,7 @@ async function sub() {
 //  2. cfg.feedUrl: a read-only HTTPS endpoint polled every 3 s (if one is configured)
 //  3. Pages copy d/<DP>/live.json, polled every 15 s (Pages itself only refreshes ~every 6 min)
 var LV = null, LCFG = null, lvSrc = "", lvGot = 0, lvFilter = "all";
-const COIN_RE = /^https:\/\/fomo\.family\/coin\?address=[A-Za-z0-9]+&chainId=\d+&r=muteee&source=share_link$/;
+const COIN_RE = /^https:\/\/pump\.fun\/coin\/[1-9A-HJ-NP-Za-km-z]{32,48}$/;
 const lvLink = e => COIN_RE.test((e && e.link) || "") ? e.link : SIGNUP;
 function lvAccept(f, src) {
   if (!f || !Array.isArray(f.events) || !f.ts) return;
@@ -264,7 +264,7 @@ function live() {
   h += `<div class="card lv">` + (rows.length ? rows.map(e => {
     const nm = e.name || (e.mint ? e.mint.slice(0, 4) + "…" + e.mint.slice(-4) : AGN[e.agent] || e.agent);
     return `<div class="lvr"><div class="lvt">${esc(tms(e.ts))}</div><div class="lvb"><div class="row"><span class="t">${esc(nm)}${e.symbol ? ` <span class="muted small">${esc(e.symbol)}</span>` : ""}</span><span class="vp ${VC[e.verdict] || "muted"}">${esc(VL[e.verdict] || e.verdict)}</span></div>
-      <div class="d"><span class="ag">${esc(AGN[e.agent] || e.agent)}</span> · ${esc(e.reason)}</div>${e.mint ? `<a class="small" href="${esc(lvLink(e))}" target="_blank" rel="noopener">Coin on FOMO ›</a>` : ""}</div></div>`; }).join("")
+      <div class="d"><span class="ag">${esc(AGN[e.agent] || e.agent)}</span> · ${esc(e.reason)}</div>${e.mint ? `<a class="small" href="${esc(lvLink(e))}" target="_blank" rel="noopener">Coin on Pump.fun ›</a>` : ""}</div></div>`; }).join("")
     : `<div class="empty">Nothing in this filter yet.</div>`) + `</div>`;
   return h;
 }
