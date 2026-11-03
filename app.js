@@ -86,9 +86,11 @@ function agents() {
   const extra = {scanner: `${st.migrations} migrations · ${st.waiting} waiting · ${st.scanKills} killed · ws ${S.wsState}`,
     auditor: `${st.audits} audits · ${st.auditPass} passed`, analyst: `${st.analyses} analysed · ${st.analystPass} passed · ${S.settings["analyst.mode"]}`,
     executor: `${st.trades} trades · ${st.pushes} pushes`, risk: `${S.positions.length} open · poll ${S.settings["risk.poll_s"]}s`};
+  const acc = a => { const x = (S.accuracy || {})[a] || {}; const f = k => x[k] && x[k].judged ? `${x[k].pct}% of ${x[k].judged}` : "—";
+    return `<div class="small" style="margin-top:6px">Verdict accuracy · 1h ${f("1h")} · 4h ${f("4h")}${x.pending ? ` · ${x.pending} pending` : ""}</div>`; };
   return Object.keys(AG).map(a => { const h = S.agents[a] || {state: "down"};
     return `<div class="card" onclick="${a === "auditor" ? "go('auditor')" : ""}"><div class="row"><b><span class="dot ${h.state}"></span>${AG[a]}</b><span class="small muted">${h.state} · ${ago(h.ts)}</span></div>
-     <div class="small muted" style="margin-top:6px">${AGD[a]}</div><div class="small" style="margin-top:6px">${extra[a]}</div>${a === "auditor" ? `<div class="small" style="margin-top:6px"><a>Open Auditor →</a></div>` : ""}</div>`; }).join("");
+     <div class="small muted" style="margin-top:6px">${AGD[a]}</div><div class="small" style="margin-top:6px">${extra[a]}</div>${acc(a)}${a === "auditor" ? `<div class="small" style="margin-top:6px"><a>Open Auditor →</a></div>` : ""}</div>`; }).join("");
 }
 
 function disc(layers) {
@@ -126,6 +128,18 @@ function activity() {
    <div class="card"><b>Scanner kills</b>${kills.length ? `<div class="list">${kills.map(c => `<div class="it"><div><div class="t"><a href="${esc(link(c))}" target="_blank" rel="noopener">${esc(c.name || c.mint.slice(0, 6))}</a></div><div class="d">Scanner · ${esc(c.scan.reason)} · ${tm(c.scan.ts)}</div></div><div class="rt muted">killed</div></div>`).join("")}</div>` : `<div class="empty">None yet.</div>`}</div>`;
 }
 
+function safeUrl(u) { return /^https:\/\/[^\s"'<>]+$/.test(u || "") ? u : null; }
+function socialCard(so) {
+  if (!so) return `<div class="card small"><div class="row"><b>Social</b><span class="muted">not checked yet</span></div></div>`;
+  const x = so.x, xu = x && safeUrl(x.url);
+  const xl = !x ? `<span class="muted">no X</span>` : `<a href="${esc(xu || "#")}" target="_blank" rel="noopener">${esc(x.kind === "account" ? "@" + (x.handle || "") : x.kind === "community" ? "X community" : x.kind === "tweet" ? "tweet by @" + (x.handle || "") : "X link")}</a>${so.bonus ? ` <span class="g">✓ +${so.bonus}</span>` : ""}`;
+  const th = so.theme ? `${esc(so.theme.tag)} · <a href="${esc(safeUrl(so.theme.url) || "#")}" target="_blank" rel="noopener">@${esc(so.theme.handle)}</a>` : `<span class="muted">—</span>`;
+  return `<div class="card small"><div class="row"><b>Social</b><span>𝕏 ${xl}</span></div>
+   <div class="row"><span class="muted">Theme</span><span>${th}</span></div>
+   <div class="row"><span class="muted">Paid boost</span><span>${so.boosted ? `yes · ${esc(String(so.boost))} <span class="muted">(context only)</span>` : "no"}</span></div>
+   ${so.cto ? `<div class="row"><span class="muted">Community takeover</span><span>yes</span></div>` : ""}
+   ${(so.flags || []).map(f => `<div class="row"><span class="r">⚠ ${esc(f)}</span></div>`).join("")}</div>`;
+}
 function coin() {
   const c = COINS.find(x => x.mint === route.mint) || {mint: route.mint};
   const p = S.positions.find(x => x.mint === route.mint) || S.closed.find(x => x.mint === route.mint);
@@ -136,6 +150,7 @@ function coin() {
    <div class="kv"><span class="muted small">Stop</span><b>-${p.stop_pct}%</b></div><div class="kv"><span class="muted small">${p.status === "closed" ? "P&L" : "Now"}</span><b>${p.status === "closed" ? usd(p.pnl_usd) : p.lastPrice ? p.lastPrice.toPrecision(4) : "—"}</b></div></div>`;
   if (c.scan) h += `<div class="card small"><div class="row"><span>Scanner</span><span>${esc(c.scan.verdict)}${c.scan.reason ? " · " + esc(c.scan.reason) : ""}</span></div>
    <div class="row"><span class="muted">Liquidity</span><span>${usd(c.scan.liquidity_usd, 0)}</span></div><div class="row"><span class="muted">Top 10</span><span>${c.scan.top10_pct == null ? "—" : c.scan.top10_pct.toFixed(1) + "%"}</span></div></div>`;
+  h += socialCard(c.social);
   if (c.analysis && c.analysis.answers) { const A = c.analysis.answers; h += `<div class="card small"><div class="row"><b>Analyst</b><span>score ${c.analysis.score}</span></div>${Object.keys(A).map(k => `<div class="row"><span class="muted">${k}</span><span>${A[k].toFixed(2)}</span></div>`).join("")}</div>`; }
   return h;
 }
