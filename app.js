@@ -1,5 +1,5 @@
 // Desk app. Static, read-only: polls plan B JSON at d/<DATA_PATH>/*.json. Never places orders.
-const SIGNUP = "https://pump.fun/join/MuTee";
+const SIGNUP = "https://pump.fun";
 const POLL_MS = 15000;
 var DP = null, S = null, ACT = [], COINS = [], EV = [], lastOk = 0, lastErr = null, route = {tab: "home"};
 const TABS = ["home", "live", "agents", "activity", "account"];
@@ -54,7 +54,7 @@ function render() {
   v.innerHTML = ({home, live, agents, activity, account, coin, auditor}[route.view || route.tab])() + foot();
   if (route.view === "coin") drawChart();
 }
-const foot = () => `<footer class="small muted">Trades happen on Pump.fun, by you. <a href="${SIGNUP}" target="_blank" rel="noopener">Join Pump.fun · code MuTee</a></footer>`;
+const foot = () => `<footer class="small muted">Trades happen on Pump.fun, by you. <a href="${SIGNUP}" target="_blank" rel="noopener">pump.fun</a></footer>`;
 
 function home() {
   const st = S.stats, pnl = st.pnlUsd, start = S.startStack || S.stack;
@@ -192,8 +192,8 @@ function account() {
     `<pre id="cmd" class="small" style="margin-top:12px">set stop to ${st["risk.stop_pct"]}</pre><button class="btn sec" onclick="navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent)">Copy command</button></div>`;
   h += `<div class="card"><b>Push on this phone</b><div class="small muted" style="margin:6px 0">Add to Home Screen first on iPhone. The desk can't receive anything from this page, so copy the subscription and send it to Grok Bot.</div>
     <button class="btn sec" onclick="sub()">Enable push</button><pre id="subout" class="small" style="display:none"></pre></div>`;
-  h += `<div class="card"><b>Pump.fun</b><div class="row small" style="margin-top:8px"><span class="muted">Referral</span><span>MuTee · 0.40% app fee with code</span></div>
-    <div style="margin-top:10px"><a class="btn" href="${SIGNUP}" target="_blank" rel="noopener">Sign up on Pump.fun</a> <a class="btn sec" href="${esc(S.profileUrl)}" target="_blank" rel="noopener">@MuTee</a></div></div>`;
+  h += `<div class="card"><b>Pump.fun</b><div class="small muted" style="margin-top:6px">Coin links open the plain Pump.fun coin page. Trades happen there, by you.</div>
+    <div style="margin-top:10px"><a class="btn" href="${SIGNUP}" target="_blank" rel="noopener">Open Pump.fun</a></div></div>`;
   return h;
 }
 function sl(alias, u, v, key) { const neg = key.endsWith("stop_pct") || key.endsWith("trail_pct"); $("#v_" + alias).textContent = u === "$" ? usd(+v, 0) : (neg ? "-" : "") + v + u; $("#cmd").textContent = `set ${alias} to ${v}`; }
