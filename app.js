@@ -163,7 +163,7 @@ const SL = [["Stop", "risk.stop_pct", "stop", 0.5, "%"], ["Trailing stop", "risk
   ["Min liquidity", "scanner.min_liquidity_usd", "min_liq", 500, "$"], ["Min score", "analyst.min_score", "min_score", 1, ""], ["Timeout", "risk.timeout_h", "timeout", 0.25, "h"]];
 function account() {
   const st = S.settings;
-  let h = `<div class="card"><div class="row"><b>Mode</b><span class="badge ${S.mode === "LIVE" ? "live" : ""}">${S.mode}</span></div><div class="small muted" style="margin-top:6px">${S.mode === "PAPER" ? `Paper stack ${usd(S.stack)}. LIVE needs 1 full PAPER night and typing LIVE.` : `LIVE stack ${usd(S.stack)}. You still tap every trade on FOMO yourself.`}</div>
+  let h = `<div class="card"><div class="row"><b>Mode</b><span class="badge ${S.mode === "LIVE" ? "live" : ""}">${S.mode}</span></div><div class="small muted" style="margin-top:6px">${S.mode === "PAPER" ? `Paper stack ${usd(S.stack)}. LIVE only when you send LIVE in Telegram.` : `LIVE stack ${usd(S.stack)}. You still tap every trade on FOMO yourself.`}</div>
     <div class="row small"><span class="muted">Min stack for ${st["executor.stack_pct"]}% tickets</span><span>${usd(S.minStack)}</span></div>
     <div class="row small"><span class="muted">Below min</span><span>${st["executor.below_min"]}</span></div><div class="row small"><span class="muted">Analyst</span><span>${st["analyst.mode"]}</span></div>
     <div class="row small"><span class="muted">Pushes</span><span>${S.channels.length ? S.channels.join(", ") : "none connected"}</span></div></div>`;
