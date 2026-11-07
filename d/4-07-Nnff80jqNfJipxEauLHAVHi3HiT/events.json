@@ -1,1 +1,1 @@
-[]
+[{"kind":"audit_layer","ts":"2026-11-07T02:04:02.213Z","mint":"XcxQVW1hRAnMbfeLkt5gp1tCGoiJyDWDEfhJv8Dpump","n":1,"name":"Mint authority","pass":true,"value":"Revoked","source":"rpc"},{"kind":"audit_layer","ts":"2026-11-07T02:04:02.214Z","mint":"XcxQVW1hRAnMbfeLkt5gp1tCGoiJyDWDEfhJv8Dpump","n":2,"name":"Freeze authority","pass":true,"value":"Revoked","source":"rpc"},{"kind":"audit_layer","ts":"2026-11-07T02:04:02.214Z","mint":"XcxQVW1hRAnMbfeLkt5gp1tCGoiJyDWDEfhJv8Dpump","n":3,"name":"Dev wallet","pass":false,"value":"no data: dev","source":"rpc"}]
